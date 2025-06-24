@@ -17,6 +17,7 @@
     let generatedCode;
     let userEmail;
     let username;
+    let emailformat = /^\d{4,5}@tiffin\.kingston\.sch\.uk$/;
 
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
     import {
@@ -226,7 +227,6 @@
 
       document.location.href = "https://rpicpu.dev/chat";
     }
-    let emailformat = /^.+@tiffin\.kingston\.sch\.uk$/;
   </script>
 
 </body>
