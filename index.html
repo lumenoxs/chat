@@ -230,7 +230,7 @@
             const session_id = new URLSearchParams(window.location.search).get("sid");
 
             if (!session_id || !/^[a-zA-Z0-9_-]{6,64}$/.test(session_id)) {
-                window.location.replace("file:///home/chronos/u-f9395bc478aff9452c799c28adb40fd222848f69/MyFiles/Downloads/Code/login.html");
+                window.location.replace("https://rpicpu.dev/chat/login.html");
                 return;
             }
 
@@ -244,7 +244,7 @@
                 if (!expiresAt || expiresAt < new Date()) {
                     // session expired
                     await deleteDoc(sessionRef).catch(() => {});
-                    window.location.replace("file:///home/chronos/u-f9395bc478aff9452c799c28adb40fd222848f69/MyFiles/Downloads/Code/login.html");
+                    window.location.replace("https://rpicpu.dev/chat/login.html");
                     return;
                 }
 
@@ -254,7 +254,7 @@
                 // invalid session id
                 username = sessionStorage.getItem("username");
                 if (!username) {
-                    window.location.replace("file:///home/chronos/u-f9395bc478aff9452c799c28adb40fd222848f69/MyFiles/Downloads/Code/login.html");
+                    window.location.replace("https://rpicpu.dev/chat/login.html");
                     return;
                 }
             }
