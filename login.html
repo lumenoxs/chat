@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Chat Login</title>
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+  <script type="module">
+    if (localStorage.getItem("blocked")) {
+      let heading1 = document.getElementById("heading1");
+      let form1 = document.getElementById("loginform");
+      let form2 = document.getElementById("codeverification");
+      heading1.innerHTML = "Please choose appropriate names.";
+      form1.style.display = "none";
+      form2.style.display = "none";
+    }
+
+    let generatedCode;
+    let userEmail;
+    let username;
+
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
+    import {
+      getFirestore,
+      doc,
+      setDoc,
+      getDoc,
+      collection,
+      addDoc,
+      Timestamp
+    } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCw4C5diBVSjRhR2HX25fJwce9Ju_zC5nU",
+      authDomain: "rpicpu-dev-chat.firebaseapp.com",
+      projectId: "rpicpu-dev-chat",
+      storageBucket: "rpicpu-dev-chat.appspot.com",
+      messagingSenderId: "231907323248",
+      appId: "1:231907323248:web:e3a6f510f149da69a073b5"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    window.verifyCode = async function () {
+      if (localStorage.getItem("blocked")) {
+        let heading1 = document.getElementById("heading1");
+        let form1 = document.getElementById("loginform");
+        let form2 = document.getElementById("codeverification");
+        heading1.innerHTML = "Please choose appropriate names.";
+        form1.style.display = "none";
+        form2.style.display = "none";
+      }
+      const inputCode = document.getElementById("code-input").value.trim();
+      if (inputCode === generatedCode) {
+        info.textContent = "Verified. Logging in...";
+        sessionStorage.setItem("username", username);
+        document.title = "Chat";
+
+        const sessionId = crypto.randomUUID();
+
+        const now = new Date();
+        const expiry = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours
+
+        await setDoc(doc(db, "sessions", sessionId), {
+          username,
+          createdAt: Timestamp.fromDate(now),
+          expiresAt: Timestamp.fromDate(expiry)
+        });
+
+        await addDoc(collection(db, "messages"), {
+          name: "System",
+          text: `Welcome ${username} to the chat!`,
+          timestamp: Timestamp.fromDate(now)
+        });
+
+        window.location.href = `https://rpicpu.dev/chat?sid=${sessionId}`;
+      } else {
+        info.textContent = "Incorrect code. Try again.";
+      }
+    };
+
+    window.login = async function () {
+      if (localStorage.getItem("blocked")) {
+        document.getElementById("heading1").innerHTML = "Please choose appropriate names.";
+        document.getElementById("loginform").style.display = "none";
+        document.getElementById("codeverification").style.display = "none";
+        return;
+      }
+
+      userEmail = document.getElementById("email").value.trim();
+      username = document.getElementById("username").value.trim();
+
+      if (!emailformat.test(userEmail)) {
+        info.innerHTML = "Please enter a valid email.";
+        return;
+      }
+
+      if (username === "" || username.length <= 4 || username === "System") {
+        info.innerHTML = "Please enter a valid username.";
+        document.getElementById("username").value = "";
+        return;
+      }
+
+      const bannedList = ["fuck", "dick", "nigg"];
+      if (bannedList.some(bad => username.toLowerCase().includes(bad))) {
+        document.getElementById("heading1").innerHTML = "Please choose appropriate names.";
+        document.getElementById("loginform").style.display = "none";
+        document.getElementById("codeverification").style.display = "none";
+        localStorage.setItem("blocked", true);
+        return;
+      }
+
+      const userRef = doc(db, "users", userEmail);
+      const userSnap = await getDoc(userRef);
+
+      if (userSnap.exists()) {
+        const storedUsername = userSnap.data().username;
+        if (storedUsername !== username) {
+          username = storedUsername;
+          info.innerHTML = `Your username was corrected to match our records: <b>${username}</b>`;
+        }
+      } else {
+        // Check if username is taken by anyone else
+        const takenRef = collection(db, "users");
+        const allUsersSnap = await getDoc(doc(db, "usernames", username));
+        if (allUsersSnap.exists()) {
+          info.innerHTML = "Username already taken.";
+          return;
+        }
+
+        // Store new user
+        await setDoc(userRef, {
+          username,
+          email: userEmail
+        });
+        await setDoc(doc(db, "usernames", username), { email: userEmail });
+      }
+
+      generatedCode = Math.floor(Math.random() * 900000 + 100000).toString();
+      info.innerHTML = "Sending email...";
+
+      emailjs
+        .send("service_kgyvm6o", "template_gvdpvfs", {
+          to_email: userEmail,
+          code: generatedCode,
+          to_name: username,
+        })
+        .then(() => {
+          info.innerHTML =
+            "Verification code sent to your email.<br>DO NOT CLOSE/RELOAD THIS PAGE";
+          document.getElementById("codeverification").style.display = "block";
+        })
+        .catch((err) => {
+          console.error("EmailJS error:", err);
+          info.textContent = "Failed to send email.";
+        });
+    };
+  </script>
+  <style>
+    body {
+      font-family: sans-serif;
+      max-width: 400px;
+      margin: 40px auto;
+      padding: 20px;
+      border: 2px solid #ccc;
+      border-radius: 10px;
+      background: #f9f9f9;
+    }
+
+    h2 {
+      text-align: center;
+    }
+
+    input, button {
+      width: 100%;
+      padding: 12px;
+      margin-top: 10px;
+      box-sizing: border-box;
+      font-size: 16px;
+    }
+
+    #codeverification {
+      display: none;
+    }
+
+    #status {
+      margin-top: 10px;
+      font-weight: bold;
+      color: rgba(255, 127, 127, 0.75);
+    }
+  </style>
+</head>
+<body>
+
+  <h2 id="heading1">Sign Up / Login</h2>
+
+  <form id="loginform">
+    <input type="text" id="username" placeholder="Enter your username" required />
+    <input type="email" id="email" placeholder="Enter your email" required />
+    <button type="button" onclick="login()">Send Verification Code</button>
+  </form>
+
+  <div id="codeverification">
+    <input type="text" id="code-input" placeholder="Enter code" />
+    <button onclick="verifyCode()">Verify</button>
+  </div>
+
+  <p id="status"></p>
+
+  <script>
+    if (window.screen.height !== 667 || window.screen.width !== 1187) {
+      window.location.href = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
+    }
+
+    emailjs.init("8GR1zxoer7PKsFSVI");
+
+    let info = document.getElementById("status");
+
+    if (sessionStorage.getItem("username")) {
+      let heading1 = document.getElementById("heading1");
+      let form1 = document.getElementById("loginform");
+      let form2 = document.getElementById("codeverification");
+      heading1.innerHTML = "Logging in...";
+      form1.style.display = "none";
+      form2.style.display = "none";
+
+      document.location.href = "https://rpicpu.dev/chat";
+    }
+    let emailformat = /^.+@tiffin\.kingston\.sch\.uk$/;
+  </script>
+
+</body>
+</html>
