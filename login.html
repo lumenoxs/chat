@@ -5,20 +5,6 @@
   <title>Chat Login</title>
   <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
   <script type="module">
-    if (localStorage.getItem("blocked")) {
-      let heading1 = document.getElementById("heading1");
-      let form1 = document.getElementById("loginform");
-      let form2 = document.getElementById("codeverification");
-      heading1.innerHTML = "Please choose appropriate names.";
-      form1.style.display = "none";
-      form2.style.display = "none";
-    }
-
-    let generatedCode;
-    let userEmail;
-    let username;
-    let emailformat = /^\d{4,5}@tiffin\.kingston\.sch\.uk$/;
-
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
     import {
       getFirestore,
@@ -42,15 +28,44 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
+    if (window.location.origin !== "https://rpicpu.dev" && window.location.origin !== "http://rpicpu.dev") {
+      window.location.href = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
+    }
+
+    emailjs.init("8GR1zxoer7PKsFSVI");
+
+    let generatedCode;
+    let userEmail;
+    let username;
+    const emailformat = /^\d{4,5}@tiffin\.kingston\.sch\.uk$/;
+    const info = document.getElementById("status");
+
+    const heading1 = document.getElementById("heading1");
+    const form1 = document.getElementById("loginform");
+    const form2 = document.getElementById("codeverification");
+
+    if (localStorage.getItem("blocked")) {
+      heading1.innerHTML = "Please choose appropriate names.";
+      form1.style.display = "none";
+      form2.style.display = "none";
+    }
+
+    if (localStorage.getItem("username")) {
+      (async () => {
+        const savedUsername = localStorage.getItem("username");
+        const sessionId = crypto.randomUUID();
+
+        await setDoc(doc(db, "sessions", sessionId), {
+          username: savedUsername
+        });
+
+        window.location.href = `https://rpicpu.dev/chat?sid=${sessionId}`;
+      })();
+    }
+
     window.verifyCode = async function () {
-      if (localStorage.getItem("blocked")) {
-        let heading1 = document.getElementById("heading1");
-        let form1 = document.getElementById("loginform");
-        let form2 = document.getElementById("codeverification");
-        heading1.innerHTML = "Please choose appropriate names.";
-        form1.style.display = "none";
-        form2.style.display = "none";
-      }
+      if (localStorage.getItem("blocked")) return;
+
       const inputCode = document.getElementById("code-input").value.trim();
       if (inputCode === generatedCode) {
         info.textContent = "Verified. Logging in...";
@@ -60,13 +75,13 @@
         const sessionId = crypto.randomUUID();
 
         await setDoc(doc(db, "sessions", sessionId), {
-          username,
+          username
         });
 
         await addDoc(collection(db, "messages"), {
           name: "System",
           text: `Welcome ${username} to the chat!`,
-          timestamp: Timestamp.fromDate(now)
+          timestamp: Timestamp.fromDate(new Date())
         });
 
         window.location.href = `https://rpicpu.dev/chat?sid=${sessionId}`;
@@ -76,12 +91,7 @@
     };
 
     window.login = async function () {
-      if (localStorage.getItem("blocked")) {
-        document.getElementById("heading1").innerHTML = "Please choose appropriate names.";
-        document.getElementById("loginform").style.display = "none";
-        document.getElementById("codeverification").style.display = "none";
-        return;
-      }
+      if (localStorage.getItem("blocked")) return;
 
       userEmail = document.getElementById("email").value.trim();
       username = document.getElementById("username").value.trim();
@@ -99,10 +109,10 @@
 
       const bannedList = ["fuck", "dick", "nigg"];
       if (bannedList.some(bad => username.toLowerCase().includes(bad))) {
-        document.getElementById("heading1").innerHTML = "Please choose appropriate names.";
-        document.getElementById("loginform").style.display = "none";
-        document.getElementById("codeverification").style.display = "none";
-        localStorage.setItem("blocked", true);
+        heading1.innerHTML = "Please choose appropriate names.";
+        form1.style.display = "none";
+        form2.style.display = "none";
+        localStorage.setItem("blocked", "true");
         return;
       }
 
@@ -116,9 +126,8 @@
           info.innerHTML = `Your username was corrected to match our records: <b>${username}</b>`;
         }
       } else {
-        const takenRef = collection(db, "users");
-        const allUsersSnap = await getDoc(doc(db, "usernames", username));
-        if (allUsersSnap.exists()) {
+        const usernameSnap = await getDoc(doc(db, "usernames", username));
+        if (usernameSnap.exists()) {
           info.innerHTML = "Username already taken.";
           return;
         }
@@ -140,9 +149,8 @@
           to_name: username,
         })
         .then(() => {
-          info.innerHTML =
-            "Verification code sent to your email.<br>DO NOT CLOSE/RELOAD THIS PAGE";
-          document.getElementById("codeverification").style.display = "block";
+          info.innerHTML = "Verification code sent to your email.<br>DO NOT CLOSE/RELOAD THIS PAGE";
+          form2.style.display = "block";
         })
         .catch((err) => {
           console.error("EmailJS error:", err);
@@ -200,33 +208,6 @@
   </div>
 
   <p id="status"></p>
-
-  <script>
-    if (window.location.origin !== "https://rpicpu.dev" && window.location.origin !== "http://rpicpu.dev") {
-      window.location.href = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
-    }
-
-    emailjs.init("8GR1zxoer7PKsFSVI");
-
-    let info = document.getElementById("status");
-
-    if (localStorage.getItem("username")) {
-      let heading1 = document.getElementById("heading1");
-      let form1 = document.getElementById("loginform");
-      let form2 = document.getElementById("codeverification");
-      heading1.innerHTML = "Logging in...";
-      form1.style.display = "none";
-      form2.style.display = "none";
-
-      await setDoc(doc(db, "sessions", sessionId), {
-        localStorage.getItem("username"),
-      });
-
-      const sessionId = crypto.randomUUID();
-
-      document.location.href = `https://rpicpu.dev/chat?sid${session_id}`;
-    }
-  </script>
 
 </body>
 </html>
