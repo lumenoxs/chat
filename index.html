@@ -159,7 +159,8 @@
             doc,
             setDoc,
             deleteDoc,
-            getDoc
+            getDoc,
+            getDocs
         } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-firestore.js";
 
         const firebaseConfig = {
@@ -228,7 +229,7 @@
         sound.addEventListener("click", () => {
             const cur = localStorage.getItem("sound") === "true";
             localStorage.setItem("sound", !cur)
-            sound.innerHTML = cur ? "Unmute" : "Mute";
+            sound.innerHTML = !cur ? "Mute" : "Unmute";
         });
         async function initUsername() {
             const session_id = new URLSearchParams(window.location.search).get("sid");
