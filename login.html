@@ -54,18 +54,13 @@
       const inputCode = document.getElementById("code-input").value.trim();
       if (inputCode === generatedCode) {
         info.textContent = "Verified. Logging in...";
-        sessionStorage.setItem("username", username);
+        localStorage.setItem("username", username);
         document.title = "Chat";
 
         const sessionId = crypto.randomUUID();
 
-        const now = new Date();
-        const expiry = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours
-
         await setDoc(doc(db, "sessions", sessionId), {
           username,
-          createdAt: Timestamp.fromDate(now),
-          expiresAt: Timestamp.fromDate(expiry)
         });
 
         await addDoc(collection(db, "messages"), {
@@ -121,7 +116,6 @@
           info.innerHTML = `Your username was corrected to match our records: <b>${username}</b>`;
         }
       } else {
-        // Check if username is taken by anyone else
         const takenRef = collection(db, "users");
         const allUsersSnap = await getDoc(doc(db, "usernames", username));
         if (allUsersSnap.exists()) {
@@ -129,7 +123,6 @@
           return;
         }
 
-        // Store new user
         await setDoc(userRef, {
           username,
           email: userEmail
@@ -217,7 +210,7 @@
 
     let info = document.getElementById("status");
 
-    if (sessionStorage.getItem("username")) {
+    if (localStorage.getItem("username")) {
       let heading1 = document.getElementById("heading1");
       let form1 = document.getElementById("loginform");
       let form2 = document.getElementById("codeverification");
@@ -225,7 +218,13 @@
       form1.style.display = "none";
       form2.style.display = "none";
 
-      document.location.href = "https://rpicpu.dev/chat";
+      await setDoc(doc(db, "sessions", sessionId), {
+        localStorage.getItem("username"),
+      });
+
+      const sessionId = crypto.randomUUID();
+
+      document.location.href = `https://rpicpu.dev/chat?sid${session_id}`;
     }
   </script>
 
