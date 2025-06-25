@@ -237,7 +237,7 @@
             if (!session_id || !/^[a-zA-Z0-9_-]{6,64}$/.test(session_id)) {
                 username = localStorage.getItem("username");
                 if (!username) {
-                    window.location.replace("https://rpicpu.dev/chat/login.html");
+                    window.location.href = "https://rpicpu.dev/chat/login.html";
                     return;
                 }
                 return;
@@ -250,12 +250,12 @@
                 const data = sessionDoc.data();
                 username = data.username;
                 localStorage.setItem("username", username);
-                window.location.replace("https://rpicpu.dev/chat");
+                window.location.href = "https://rpicpu.dev/chat";
             } else {
                 // invalid session id
                 username = localStorage.getItem("username");
                 if (!username) {
-                    window.location.replace("https://rpicpu.dev/chat/login.html");
+                    window.location.href = "https://rpicpu.dev/chat/login.html";
                     return;
                 }
             }
