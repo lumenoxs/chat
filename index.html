@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -232,7 +231,11 @@
             const session_id = new URLSearchParams(window.location.search).get("sid");
 
             if (!session_id || !/^[a-zA-Z0-9_-]{6,64}$/.test(session_id)) {
-                window.location.replace("https://rpicpu.dev/chat/login.html");
+                username = localStorage.getItem("username");
+                if (!username) {
+                    window.location.replace("https://rpicpu.dev/chat/login.html");
+                    return;
+                }
                 return;
             }
 
@@ -241,20 +244,12 @@
 
             if (sessionDoc.exists()) {
                 const data = sessionDoc.data();
-                const expiresAt = data.expiresAt?.toDate?.();
-
-                if (!expiresAt || expiresAt < new Date()) {
-                    // session expired
-                    await deleteDoc(sessionRef).catch(() => {});
-                    window.location.replace("https://rpicpu.dev/chat/login.html");
-                    return;
-                }
-
                 username = data.username;
-                sessionStorage.setItem("username", username);
+                localStorage.setItem("username", username);
+                window.location.replace("https://rpicpu.dev/chat");
             } else {
                 // invalid session id
-                username = sessionStorage.getItem("username");
+                username = localStorage.getItem("username");
                 if (!username) {
                     window.location.replace("https://rpicpu.dev/chat/login.html");
                     return;
@@ -332,94 +327,150 @@
 
                 if (dateStr !== lastDate) {
                     const sep = document.createElement("div");
-                    sep.className = "dateseparator";
-                    sep.textContent = formatDate(ts);
-                    chatbox.appendChild(sep);
-                    lastDate = dateStr;
-                    lastSender = null;
-                }
-
-                if (data.name === "System") {
-                    const sys = document.createElement("div");
-                    sys.className = "message system";
-                    sys.textContent = data.text;
-                    chatbox.appendChild(sys);
-                    return;
-                }
-
-                if (data.name !== username && document.hidden && localStorage.getItem("sound") === "true") pingSound.play().catch(() => {});
-
-                if (data.name !== lastSender || !lastTimestamps.has(data.name) || (ts - lastTimestamps.get(data.name)) > 1800000) {
-                    const label = document.createElement("div");
-                    label.className = "username";
-                    label.textContent = data.name;
-                    label.style.textAlign = isUser ? "right" : "left";
-                    chatbox.appendChild(label);
-                    lastSender = data.name;
-                }
-
-                lastTimestamps.set(data.name, ts);
-                const msg = document.createElement("div");
-                msg.className = "message " + (isUser ? "user" : "other");
-                msg.innerHTML = `<div>${data.text}</div><div class="timestamp">${ts.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</div>`;
-                chatbox.appendChild(msg);
-            });
-
-            scrollToBottom(true);
-            chatbox.dispatchEvent(new Event("scroll"));
-            applyMode();
-        });
-
-        let lastUpdateSeen = parseInt(localStorage.getItem("updateVersion") || "0");
-
-        async function checkForUpdates() {
-            const updatesRef = collection(db, "updates");
-            const docs = await getDocs(updatesRef);
-            let maxUpdate = 0;
-            docs.forEach(doc => {
-                const id = parseInt(doc.id);
-                if (id > maxUpdate) maxUpdate = id;
-            });
-
-            if (maxUpdate > lastUpdateSeen) {
-                localStorage.setItem("updateVersion", maxUpdate);
-                window.location.reload();
-            }
+         5�<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="favicon.png" type="image/png">
+    <title>Google Docs</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 10px;
         }
 
-        setInterval(checkForUpdates, 10000);
-
-        onSnapshot(collection(db, "typing"), snapshot => {
-            const names = [];
-            snapshot.forEach(doc => {
-                const data = doc.data();
-                if (data.name !== username) names.push(data.name);
-            });
-            typingNotice.textContent = names.length ? `${names.join(", ")} ${names.length > 1 ? "are" : "is"} typing...` : "";
-        });
-
-        function formatDate(date) {
-            const now = new Date(),
-                yest = new Date();
-            yest.setDate(now.getDate() - 1);
-            if (date.toDateString() === now.toDateString()) return "Today";
-            if (date.toDateString() === yest.toDateString()) return "Yesterday";
-            return date.toLocaleDateString("en-GB");
+        #chatbox {
+            width: 95%;
+            margin: 0 auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            min-height: 300px;
+            overflow-y: auto;
+            text-align: left;
+            transition: height 0.3s ease;
         }
 
-        function updateClock() {
-            document.getElementById("clock").textContent = new Date().toLocaleTimeString();
+        #name {
+            margin-bottom: 10px;
         }
 
-        setInterval(updateClock, 1000);
-        updateClock();
-
-        function resizeChatbox() {
-            chatbox.style.height = Math.max(window.innerHeight * 0.66, 300) + "px";
+        #userInput {
+            width: 90%;
+            padding: 10px;
         }
-        resizeChatbox();
-        window.addEventListener("resize", resizeChatbox);
-    </script>
-</body>
 
-</html>
+        button {
+            padding: 10px;
+        }
+
+        .message {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 10px;
+            max-width: 100%;
+            word-wrap: break-word;
+        }
+
+        .user {
+            background-color: #d1e7fd;
+            margin-left: auto;
+            text-align: right;
+        }
+
+        .other {
+            background-color: #f1f1f1;
+            margin-right: auto;
+            text-align: left;
+        }
+
+        .username {
+            font-size: 0.75em;
+            color: #888;
+            margin: 8px 0 4px;
+            font-weight: bold;
+        }
+
+        .message.system {
+            background-color: #ffeeba;
+            color: #856404;
+            font-style: italic;
+            text-align: center;
+        }
+
+        .timestamp {
+            font-size: 0.7em;
+            color: #999;
+            margin-top: 4px;
+            text-align: right;
+        }
+
+        .dateseparator {
+            text-align: center;
+            font-weight: bold;
+            color: #555;
+            margin: 15px 0;
+        }
+
+        #sound {
+            padding: 4px;
+            cursor: pointer;
+        }
+
+        #mode {
+            padding: 4px;
+            margin-right: 30px;
+            margin-bottom: 10px;
+            cursor: pointer;
+        }
+
+        #clock {
+            margin-top: 20px;
+            font-size: 0.9em;
+            color: #888;
+        }
+
+        #typingNotice {
+            margin-top: 10px;
+            color: #000000;
+            font-style: italic;
+            font-weight: bold;
+        }
+
+        #scrollToBottomBtn {
+            display: none;
+            position: fixed;
+            bottom: 80px;
+            right: 20px;
+            z-index: 999;
+            padding: 10px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <h2>Chat Room</h2>
+    <div id="name"></div>
+    <button id="mode"></button>
+    <button id="sound"></button>
+    <div id="chatbox"></div>
+    <input type="text" id="userInput" placeholder="Type a message..." />
+    <button onclick="sendMessage()">Send</button>
+    <div id="typingNotice"></div>
+    <div id="clock"></div>
+    <button id="scrollToBottomBtn">Go to Bottom</button>
+    <audio id="ping" src="ping.mp3" preload="auto"></audio>
+
+    <script type="module">
+        if (window.location.origin !== "https://rpicpu.dev" && window.location.origin !== "http://rpicpu.dev") {
+          window.location.href = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
+        }
+        import {
+            initializeApp
+        } from "https://www.gstatic.com/fire
