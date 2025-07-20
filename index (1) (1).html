@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="favicon.png" type="image/png">
+    <title>Google Docs</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 10px;
+        }
+
+        #chatbox {
+            width: 95%;
+            margin: 0 auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            min-height: 300px;
+            overflow-y: auto;
+            text-align: left;
+            transition: height 0.3s ease;
+        }
+
+        #name {
+            margin-bottom: 10px;
+        }
+
+        #userInput {
+            width: 90%;
+            padding: 10px;
+        }
+
+        button {
+            padding: 10px;
+        }
+
+        .message {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 10px;
+            max-width: 100%;
+            word-wrap: break-word;
+        }
+
+        .user {
+            background-color: #d1e7fd;
+            margin-left: auto;
+            text-align: right;
+        }
+
+        .other {
+            background-color: #f1f1f1;
+            margin-right: auto;
+            text-align: left;
+        }
+
+        .username {
+            font-size: 0.75em;
+            color: #888;
+            margin: 8px 0 4px;
+            font-weight: bold;
+        }
+
+        .message.system {
+            background-color: #ffeeba;
+            color: #856404;
+            font-style: italic;
+            text-align: center;
+        }
+
+        .timestamp {
+            font-size: 0.7em;
+            color: #999;
+            margin-top: 4px;
+            text-align: right;
+        }
+
+        .dateseparator {
+            text-align: center;
+            font-weight: bold;
+            color: #555;
+            margin: 15px 0;
+        }
+
+        #sound {
+            padding: 4px;
+            cursor: pointer;
+        }
+
+        #mode {
+            padding: 4px;
+            margin-right: 30px;
+            margin-bottom: 10px;
+            cursor: pointer;
+        }
+
+        #clock {
+            margin-top: 20px;
+            font-size: 0.9em;
+            color: #888;
+        }
+
+        #typingNotice {
+            margin-top: 10px;
+            color: #000000;
+            font-style: italic;
+            font-weight: bold;
+        }
+
+        #scrollToBottomBtn {
+            display: none;
+            position: fixed;
+            bottom: 80px;
+            right: 20px;
+            z-index: 999;
+            padding: 10px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <h2>Chat Room</h2>
+    <div id="name"></div>
+    <button id="mode"></button>
+    <button id="sound"></button>
+    <div id="chatbox"></div>
+    <input type="text" id="userInput" placeholder="Type a message..." />
+    <button onclick="sendMessage()">Send</button>
+    <div id="typingNotice"></div>
+    <div id="clock"></div>
+    <button id="scrollToBottomBtn">Go to Bottom</button>
+    <audio id="ping" src="ping.mp3" preload="auto"></audio>
+
+    <script type="module">
+        import {
+            initializeApp
+        } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
+        import {
+            getFirestore,
+            collection,
+            addDoc,
+            serverTimestamp,
+            onSnapshot,
+            query,
+            orderBy,
+            doc,
+            setDoc,
+            deleteDoc,
+            getDoc,
+            getDocs,
+            Timestamp
+        } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCw4C5diBVSjRhR2HX25fJwce9Ju_zC5nU",
+            authDomain: "rpicpu-dev-chat.firebaseapp.com",
+            projectId: "rpicpu-dev-chat",
+            storageBucket: "rpicpu-dev-chat.appspot.com",
+            messagingSenderId: "231907323248",
+            appId: "1:231907323248:web:e3a6f510f149da69a073b5"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        const chatbox = document.getElementById("chatbox");
+        const userInput = document.getElementById("userInput");
+        const mode = document.getElementById("mode");
+        const sound = document.getElementById("sound");
+        const namebox = document.getElementById("name");
+        const typingNotice = document.getElementById("typingNotice");
+        const scrollBtn = document.getElementById("scrollToBottomBtn");
+        const pingSound = document.getElementById("ping");
+        
+        let lastMessage = "";
+        let lastSentTime = 0;
+
+        let isSound = localStorage.getItem("sound") === "true";
+        sound.innerHTML = isSound ? "Mute" : "Unmute";
+
+        let darkMode = localStorage.getItem("mode") === "true";
+        mode.innerHTML = darkMode ? "Dark Mode" : "Light Mode";
+
+        function applyMode() {
+            document.body.style.backgroundColor = darkMode ? "#000000" : "#FFFFFF";
+            document.body.style.color = darkMode ? "#FFFFFF" : "#000000";
+            mode.innerHTML = darkMode ? "Light Mode" : "Dark Mode";
+
+            document.querySelectorAll('.message').forEach(msg => {
+                if (!msg.classList.contains('system')) {
+                    msg.style.backgroundColor = darkMode ? "#222" : "#f1f1f1";
+                    msg.style.color = darkMode ? "#fff" : "#000";
+                }
+            });
+
+            document.querySelectorAll('.username').forEach(name => {
+                name.style.color = darkMode ? "#bbb" : "#888";
+            });
+
+            document.getElementById("chatbox").style.borderColor = darkMode ? "#444" : "#ddd";
+        }
+
+        function changeMode() {
+            darkMode = !darkMode;
+            localStorage.setItem("mode", darkMode);
+
+            applyMode();
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            applyMode();
+        });
+
+        mode.addEventListener("click", () => changeMode());
+
+        sound.addEventListener("click", () => {
+            const cur = localStorage.getItem("sound") === "true";
+            localStorage.setItem("sound", !cur)
+            sound.innerHTML = cur ? "Unmute" : "Mute";
+        });
+
+        async function promptUsername() {
+            let username = prompt("What username?").trim();
+            if (!username || username === "") {
+                let verbs = ["Dancing", "Singing", "Arguing", "Chasing"]
+                let names = ["Zebra", "Hippo", "Buffalo", "Octopus"]
+                username = verbs[Math.floor(Math.random()*verbs.length)] + names[Math.floor(Math.random()*names.length)] + parseInt(Math.floor(Math.random() * 90)+10);
+                alert(`You didnt choose a username. You got ${username}`);
+            }
+            const sessionId = crypto.randomUUID();
+
+            await setDoc(doc(db, "sessions", sessionId), {
+                username,
+            });
+
+            await addDoc(collection(db, "messages"), {
+                name: "System",
+                text: `Welcome ${username} to the chat!`,
+                timestamp: Timestamp.now()
+            });
+            return sessionId;
+        }
+        
+        let cachedUsername = null;
+
+        async function getUsername(session_id) {
+            if (cachedUsername) return cachedUsername;
+            const sessionDoc = await getDoc(doc(db, "sessions", session_id));
+
+            if (sessionDoc.exists()) {
+                const data = sessionDoc.data();
+                var username = data.username;
+                localStorage.setItem("session_id", session_id);
+            } else { // the id cant be found
+                session_id = localStorage.getItem("session_id");
+                if (!session_id) {
+                    session_id = await promptUsername();
+                }
+                // redo previous except with localstorage (i dont want a recursion infinite loop if localstorage is invalid)
+                const sessionDoc = await getDoc(doc(db, "sessions", session_id));
+
+                if (sessionDoc.exists()) {
+                    const data = sessionDoc.data();
+                    username = data.username;
+                    localStorage.setItem("session_id", session_id);
+                } else { // localstorage id is also invalid
+                    session_id = await promptUsername();
+                }
+            }
+            return username;
+        }
+
+        async function initUsername() {
+            let session_id = localStorage.getItem("session_id");
+            if (!session_id) {
+                session_id = await promptUsername();
+            }
+            
+            let username = await getUsername(session_id)
+            localStorage.setItem("session_id", session_id)
+
+            namebox.innerHTML = "<b>Username:</b> " + username;
+        }
+        
+        await initUsername();
+
+        async function sendMessage() {
+            const text = userInput.value.trim();
+            const now = Date.now();
+            if (text.length > 96) return alert("Too long.");
+            if (text === lastMessage) return alert("Don't repeat.");
+            if (now - lastSentTime < 1500) return alert("Slow down.");
+            if (!text) return;
+
+            let username = await getUsername(localStorage.getItem("session_id"));
+
+            await addDoc(collection(db, "messages"), {
+                name: username,
+                text,
+                timestamp: serverTimestamp()
+            });
+
+            userInput.value = "";
+            lastMessage = text;
+            lastSentTime = now;
+            userInput.blur()
+            setTimeout(() => userInput.focus(), 100);
+            await deleteDoc(doc(db, "typing", username));
+            scrollToBottom(true);
+        }
+
+        window.sendMessage = sendMessage;
+
+        userInput.addEventListener("keypress", async e => {
+            let username = await getUsername(localStorage.getItem("session_id"));
+            if (e.key === "Enter") sendMessage();
+            else await setDoc(doc(db, "typing", username), {
+                name: username,
+                timestamp: serverTimestamp()
+            });
+            setTimeout(() => {
+                deleteDoc(doc(db, "typing", username));
+            }, 2500);
+        });
+
+        userInput.addEventListener("blur", async () => {
+            let username = await getUsername(localStorage.getItem("session_id"));
+            await deleteDoc(doc(db, "typing", username));
+        });
+
+        function scrollToBottom(force = false) {
+            const nearBottom = chatbox.scrollHeight - chatbox.scrollTop - chatbox.clientHeight < 400;
+            if (nearBottom || force) {
+                chatbox.scrollTop = chatbox.scrollHeight;
+            }
+        }
+
+        chatbox.addEventListener("scroll", () => {
+            const dist = chatbox.scrollHeight - chatbox.scrollTop - chatbox.clientHeight;
+            scrollBtn.style.display = dist > 400 ? "block" : "none";
+        });
+
+        scrollBtn.addEventListener("click", () => scrollToBottom(true));
+
+        const q = query(collection(db, "messages"), orderBy("timestamp"));
+        
+        onSnapshot(q, snapshot => {
+            (async () => {
+                let username = await getUsername(localStorage.getItem("session_id"));
+                chatbox.innerHTML = "";
+                let lastSender = null,
+                    lastDate = "";
+                const lastTimestamps = new Map();
+
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    const ts = data.timestamp?.toDate();
+                    if (!ts) return;
+                    const isUser = data.name === username;
+                    const dateStr = ts.toDateString();
+
+                    if (dateStr !== lastDate) {
+                        const sep = document.createElement("div");
+                        sep.className = "dateseparator";
+                        sep.textContent = formatDate(ts);
+                        chatbox.appendChild(sep);
+                        lastDate = dateStr;
+                        lastSender = null;
+                    }
+
+                    if (data.name === "System") {
+                        const sys = document.createElement("div");
+                        sys.className = "message system";
+                        sys.textContent = data.text;
+                        chatbox.appendChild(sys);
+                        return;
+                    }
+
+                    if (data.name !== username && document.hidden && localStorage.getItem("sound") === "true") pingSound.play().catch(() => {});
+
+                    if (data.name !== lastSender || !lastTimestamps.has(data.name) || (ts - lastTimestamps.get(data.name)) > 1800000) {
+                        const label = document.createElement("div");
+                        label.className = "username";
+                        label.textContent = data.name;
+                        label.style.textAlign = isUser ? "right" : "left";
+                        chatbox.appendChild(label);
+                        lastSender = data.name;
+                    }
+
+                    lastTimestamps.set(data.name, ts);
+                    const msg = document.createElement("div");
+                    msg.className = "message " + (isUser ? "user" : "other");
+                    msg.innerHTML = `<div>${data.text}</div><div class="timestamp">${ts.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</div>`;
+                    chatbox.appendChild(msg);
+                });
+
+                scrollToBottom(true);
+                chatbox.dispatchEvent(new Event("scroll"));
+                applyMode();
+            })();
+        });
+
+        let lastUpdateSeen = parseInt(localStorage.getItem("updateVersion") || "0");
+
+        async function checkForUpdates() {
+            const updatesRef = collection(db, "updates");
+            const docs = await getDocs(updatesRef);
+            let maxUpdate = 0;
+            docs.forEach(doc => {
+                const id = parseInt(doc.id);
+                if (id > maxUpdate) maxUpdate = id;
+            });
+
+            if (maxUpdate > lastUpdateSeen) {
+                localStorage.setItem("updateVersion", maxUpdate);
+                window.location.reload();
+            }
+        }
+
+        setInterval(checkForUpdates, 10000);
+
+        onSnapshot(collection(db, "typing"), snapshot => {
+            (async () => {
+                let username = await getUsername(localStorage.getItem("session_id"));
+                const names = [];
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    if (data.name !== username) names.push(data.name);
+                });
+                typingNotice.textContent = names.length ? `${names.join(", ")} ${names.length > 1 ? "are" : "is"} typing...` : "";
+            })();
+        }); 
+
+        function formatDate(date) {
+            const now = new Date(),
+                yest = new Date();
+            yest.setDate(now.getDate() - 1);
+            if (date.toDateString() === now.toDateString()) return "Today";
+            if (date.toDateString() === yest.toDateString()) return "Yesterday";
+            return date.toLocaleDateString("en-GB");
+        }
+
+        function updateClock() {
+            document.getElementById("clock").textContent = new Date().toLocaleTimeString();
+        }
+
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        function resizeChatbox() {
+            chatbox.style.height = Math.max(window.innerHeight * 0.66, 300) + "px";
+        }
+        resizeChatbox();
+        window.addEventListener("resize", resizeChatbox);
+    </script>
+</body>
+</html>
